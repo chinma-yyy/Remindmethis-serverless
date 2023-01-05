@@ -1,0 +1,17 @@
+{
+  "name": "Testing",
+  "version": "1.0.0",
+  "description": "",
+  "dependencies": {
+    "chrono": "^1.0.5",
+    "chrono-node": "^2.5.0",
+    "dotenv": "^16.0.3",
+    "express": "^4.17.1",
+    "mongoose": "^6.8.2",
+    "serverless-http": "^2.7.0",
+    "twitter-api-v2": "^1.13.0"
+  },
+  "devDependencies": {
+    "serverless-offline": "^12.0.4"
+  }
+}

@@ -1,0 +1,35 @@
+service: Testing
+frameworkVersion: "3"
+
+provider:
+  name: aws
+  runtime: nodejs14.x
+
+  environment:
+    CONSUMER_KEY: ${env:CONSUMER_KEY}
+    CONSUMER_SECRET: ${env:CONSUMER_SECRET}
+    BEARER_TOKEN: ${env:BEARER_TOKEN}
+    ACCESS_TOKEN: ${env:ACCESS_TOKEN}
+    ACCESS_TOKEN_SECRET: ${env:ACCESS_TOKEN_SECRET}
+    CLIENT_ID: ${env:CLIENT_ID}
+    CLIENT_SECRET: ${env:CLIENT_SECRET}
+    MONGODB_URL: ${env:MONGODB_URL}
+    USER_ID: ${env:USER_ID}
+    CALLBACK_URL: ${env:CALLBACK_URL}
+    BASE_URL: ${env:BASE_URL}
+
+
+functions:
+  api:
+    handler: handler.handler
+    events:
+      - httpApi: "*"
+
+  checkReminder:
+    handler: handler.checkReminder
+    timeout: 60
+    events:
+      - schedule: rate(1 minute)
+
+plugins:
+  - serverless-offline
