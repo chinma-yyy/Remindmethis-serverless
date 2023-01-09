@@ -3,7 +3,8 @@ exports.checkReminder = require("./service/reminderCheck").checkReminder;
 const serverless = require("serverless-http");
 const express = require("express");
 const crypto = require('crypto');
-const chrono=require('chrono-node');
+const chrono = require('chrono-node');
+const { TwitterApi }=require('twitter-api-v2');
 
 const Admin = require('./models/admin');
 const User = require('./models/user');
@@ -11,7 +12,7 @@ const Tweet = require('./models/tweet');
 
 const DM = require('./Controllers/sendDMcontroller');
 const save = require('./Controllers/saveController');
-const { saved , reminderSend , reminderSet , connected}=require('./Controllers/messageController');
+const { saved, reminderSet, connected } = require('./Controllers/messageController');
 const mongoose = require("mongoose");
 
 
@@ -21,8 +22,8 @@ app.get("/webhook", (req, res, next) => {
   var crc_token = req.query.crc_token;
   // console.log(crc_token);
   if (crc_token) {
-    var hash = crypto.createHmac('sha256', 'Tio3LJPlq1sH8DT7LVVVA3jY4yeaGh9X2v7chDxDR8SnqyopQX').update(crc_token).digest('base64');
-    
+    var hash = crypto.createHmac('sha256', process.env.CONSUMER_SECRET).update(crc_token).digest('base64');
+
     res.status(200);
     var response_token = 'sha256=' + hash;
     console.log(response_token);
@@ -30,7 +31,7 @@ app.get("/webhook", (req, res, next) => {
       "response_token": response_token
     }
     // console.log(json);
-    
+
     res.json({
       "response_token": response_token
     })
@@ -43,14 +44,15 @@ app.get("/webhook", (req, res, next) => {
 app.post("/webhook", async (req, res, next) => {
   var buff = req.body;
   const body = JSON.parse(buff.toString());
-  console.log(body);
+  console.log("Req started");
+  // console.log(body);
   //store the body of the request
   // res.json({message:"Body check"});
   if (body.direct_message_events) {
     let senderId = body.direct_message_events[0].message_create.sender_id;
     if (senderId != process.env.USER_ID) {//Khudka event ko case mei na lena
-      mongoose.set('strictQuery',true);
-      const client = mongoose.connect(process.env.MONGODB_URL).then(result=>{
+      mongoose.set('strictQuery', true);
+      const client = mongoose.connect(process.env.MONGODB_URL).then(result => {
         console.log("Connected to db");
       });
 
@@ -62,6 +64,8 @@ app.post("/webhook", async (req, res, next) => {
       message_data = message_data.trimStart();
       message_data = message_data.toLowerCase();
       message_data = message_data.trimEnd();
+
+      console.log("message ="+message_data);
 
       //Check if user nahi hai toh create
       const search = await User.findOne({ userId: senderId }).then(userDoc => {
@@ -101,6 +105,10 @@ app.post("/webhook", async (req, res, next) => {
             for (i = 0; i < doc.length; i++) {
               DM.sendDM(doc[i].tweetURL, senderId);
             }
+            console.log("Reminders request End");
+            res.status(200).json({
+              message: "Reminders sent"
+            })
           }).catch(err => {
             console.log(err);
           });
@@ -126,6 +134,10 @@ app.post("/webhook", async (req, res, next) => {
             const update = User.updateOne({ userId: senderId }, { $addToSet: { tags: tags } }).then(result => { console.log(result); });//Add tags to the user without duplicating
           }
           save.saveTweet(senderId, urls[0].expanded_url, dt, true, tags);
+          console.log("Reminder set req end");
+          res.status(200).json({
+            message: "Reminder Set"
+          })
         }
       }
       else if (urls.length) {
@@ -136,17 +148,22 @@ app.post("/webhook", async (req, res, next) => {
         }
         save.saveTweet(senderId, urls[0].expanded_url, false, false, tags);
         DM.sendDM(saved(), senderId);
+        console.log("Tweet save req end");
+        res.status(200).json({
+          message: "Tweet saved"
+        })
       }
       else if (message_data == 'connect') {
-        console.log("Connect");
         const connection = User.findOne({ userId: senderId }).then(userDoc => {
           if (userDoc) {
             DM.sendDM(connected(), senderId);
-            res.status(200).json({ mesaage: "Success" });
+            console.log("Connect req end");
+            res.status(200).json({ mesaage: "Already connected" });
           }
           else {
-            DM.sendDM("Connected", senderId);
-            res.json({ message: "Success" });
+            DM.sendDM("Connected😊", senderId);
+            console.log("Connected req end");
+            res.json({ message: "Connected" });
           }
         })
         //Aur kuchh acche se daalde for first message
@@ -154,8 +171,22 @@ app.post("/webhook", async (req, res, next) => {
       else {
         DM.sendDM("Samajh nahi aaya bhai kya bol raha hai.!!! ", senderId);
         //Invalid text recieved
+        setTimeout(function(){
+          console.log("callback")
+        },10000);
+        res.status(200).json({ message: "Invalid message" });
       }
     }
+    else{
+      console.log("Self created message");
+      res.status(200).json({
+        message:"Self created"
+      })
+    }
+  }
+  else {
+    console.log("Other events");
+    res.status(200).json({ message: "Message event not created" });
   }
 
 });
@@ -167,4 +198,4 @@ app.use((req, res, next) => {
   });
 });
 // handler.js
-module.exports.handler = serverless(app);
+module.exports.webhook = serverless(app);
